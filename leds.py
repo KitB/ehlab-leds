@@ -3,6 +3,7 @@ import colorsys
 import json
 import logging
 import math
+import queue
 import socket
 import threading
 import time
@@ -465,8 +466,13 @@ class Renderer(threading.Thread):
 
 
 class MainLedThread(threading.Thread):
-    new_program = None
-    progthread = None
+    def __init__(self):
+        super().__init__()
+        self.progthread = None
+        self.task_queue = queue.Queue()
+
+    def post(self, job):
+        self.task_queue.put(job)
 
     def run(self):
         while True:
@@ -478,19 +484,19 @@ class MainLedThread(threading.Thread):
 
     def loop(self):
         while True:
-            if self.new_program is not None:
-                logging.info("new program requested")
-                if self.progthread is not None:
-                    logging.info("stopping old program")
-                    self.progthread.stop()
-                    logging.info("old program stopped")
-                self.progthread = ProgramRunnerThread()
-                self.progthread.program = self.new_program
-                self.progthread.daemon = True
-                self.progthread.start()
-                logging.info("new program started")
-                self.new_program = None
-            time.sleep(0.5)
+            program = self.task_queue.get(block=True)
+            logging.info("new program requested")
+
+            if self.progthread is not None:
+                logging.info("stopping old program")
+                self.progthread.stop()
+                logging.info("old program stopped")
+
+            self.progthread = ProgramRunnerThread()
+            self.progthread.program = program
+            self.progthread.daemon = True
+            self.progthread.start()
+            logging.info("new program started")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -535,7 +541,7 @@ class MessageHandler:
 
         if data in presets:
             logging.info("selecting preset {}".format(data))
-            self.main_led_thread.new_program = presets[data]
+            self.main_led_thread.post(presets[data])
         else:
             rgb = parse_colour(data)
             if rgb is None:
@@ -543,7 +549,7 @@ class MessageHandler:
             else:
                 logging.info("selecting colour {} = {})".format(data, rgb))
                 p = StaticColour(frame_main, rgb_to_24bit(rgb[0], rgb[1], rgb[2]))
-                self.main_led_thread.new_program = p
+                self.main_led_thread.post(p)
 
     def on_brightness(self, message):
         global brightness_pct
@@ -617,13 +623,13 @@ def main():
     musicthread.start()
 
     mainledthread = MainLedThread()
-    mainledthread.new_program = presets["rainbow"]
+    mainledthread.post(presets["rainbow"])
     mainledthread.daemon = True
     mainledthread.start()
 
     message_handler = MessageHandler(mainledthread)
 
-    m = mqtt.Client()
+    m = mqtt_client.Client()
     m.on_connect = on_connect
     m.on_message = message_handler.on_message
     m.connect("mqtt")
