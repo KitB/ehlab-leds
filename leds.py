@@ -328,19 +328,26 @@ class BercostatBow(Rainbow):
 
 
 class PixelPicker(LedProgram):
-    def setup(self, data=dict(), chosen_pixel=1):
+    def setup(self, data=None):
+        self.action_queue = queue.Queue()
+
+        if data is None:
+            data = {}
+
         self.data = data
-        self.chosen_pixel = chosen_pixel
         self.black = rgb_to_24bit(0, 0, 0)
         self.set_all(self.black)
         self.show()
 
+    def post(self, data):
+        self.action_queue.put(data)
+
     def loop(self):
-        for key in self.data:
+        data = self.action_queue.get()
+        for key in data:
             self.set_pixel(int(key),
-                           rgb_to_24bit(self.data[key][0], self.data[key][1], self.data[key][2])
+                           rgb_to_24bit(data[key][0], data[key][1], data[key][2])
                            )
-            self.sleep(0.005)
         self.show()
 
 
@@ -586,7 +593,7 @@ class MessageHandler:
 
     def on_picker_json(self, message):
             data = json.loads(message.payload.decode())
-            presets["pixelpicker"].data = data
+            presets["pixelpicker"].post(data)
 
 
 frame_net = Frame(776, timeout=1)
