@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import colorsys
 import json
 import logging
@@ -14,6 +15,8 @@ import neopixel
 import webcolors
 
 logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
 
 port = 2812
 pixels = 776
@@ -374,7 +377,6 @@ class StaticColour(LedProgram):
 
 
 class ServerProgram(LedProgram):
-
     port = 2812
 
     def run(self):
@@ -382,7 +384,7 @@ class ServerProgram(LedProgram):
             try:
                 self.loop()
             except Exception as e:
-                logging.exception("Exception in ServerThread")
+                logger.exception("Exception in ServerThread")
             if self.exit_requested:
                 return
             time.sleep(1)
@@ -479,28 +481,28 @@ class MainLedThread(threading.Thread):
             try:
                 self.loop()
             except Exception as e:
-                logging.exception("Exception in MainLedThread: %s", e)
+                logger.exception("Exception in MainLedThread: %s", e)
                 time.sleep(1)
 
     def loop(self):
         while True:
             program = self.task_queue.get(block=True)
-            logging.info("new program requested")
+            logger.info("new program requested")
 
             if self.progthread is not None:
-                logging.info("stopping old program")
+                logger.info("stopping old program")
                 self.progthread.stop()
-                logging.info("old program stopped")
+                logger.info("old program stopped")
 
             self.progthread = ProgramRunnerThread()
             self.progthread.program = program
             self.progthread.daemon = True
             self.progthread.start()
-            logging.info("new program started")
+            logger.info("new program started")
 
 
 def on_connect(client, userdata, flags, rc):
-    logging.info("mqtt connected")
+    logger.info("mqtt connected")
     client.subscribe("display/g1/leds")
     client.subscribe("display/g1/leds/brightness")
     client.subscribe("display/g1/leds/rainbow/multiplier")
@@ -518,6 +520,8 @@ class MessageHandler:
         self.main_led_thread = main_led_thread
 
     def on_message(self, client, userdata, message):
+        logger.debug('Received message: %s\t%s', message.topic, message.payload)
+
         def to_name(topic):
             extension = topic[len(self.prefix):]
             if extension == '':
@@ -529,9 +533,9 @@ class MessageHandler:
         try:
             handler(message)
         except ValueError:
-            logging.exception('{} could not be parsed: {}'.format(name, message.payload))
+            logger.exception('{} could not be parsed: {}'.format(name, message.payload))
         except Exception as e:
-            logging.exception("Exception ({}) handling topic {}".format(e.message, message.topic))
+            logger.exception("Exception ({}) handling topic {}".format(e.message, message.topic))
 
     def on_root(self, message):
         try:
@@ -540,14 +544,14 @@ class MessageHandler:
             data = message.payload.decode()
 
         if data in presets:
-            logging.info("selecting preset {}".format(data))
+            logger.info("selecting preset {}".format(data))
             self.main_led_thread.post(presets[data])
         else:
             rgb = parse_colour(data)
             if rgb is None:
-                logging.info("preset/colour {} not found".format(data))
+                logger.info("preset/colour {} not found".format(data))
             else:
-                logging.info("selecting colour {} = {})".format(data, rgb))
+                logger.info("selecting colour {} = {})".format(data, rgb))
                 p = StaticColour(frame_main, rgb_to_24bit(rgb[0], rgb[1], rgb[2]))
                 self.main_led_thread.post(p)
 
@@ -556,29 +560,29 @@ class MessageHandler:
         payload = int(message.payload)
         if payload >= 0 and payload <= 100:
             brightness_pct = payload
-            logging.info("LED brightness set to {}%".format(brightness_pct))
+            logger.info("LED brightness set to {}%".format(brightness_pct))
         else:
-            logging.warning("Brightness value {} was outside of bounds".format(payload))
+            logger.warning("Brightness value {} was outside of bounds".format(payload))
 
     def on_rainbow_multiplier(self, message):
         presets["rainbow"].multiplier = float(message.payload)
-        logging.info("rainbow multiplier set to {}".format(presets["rainbow"].multiplier))
+        logger.info("rainbow multiplier set to {}".format(presets["rainbow"].multiplier))
 
     def on_rainbow_speed(self, message):
         presets["rainbow"].speed = float(message.payload)
-        logging.info("rainbow speed set to {}".format(presets["rainbow"].speed))
+        logger.info("rainbow speed set to {}".format(presets["rainbow"].speed))
 
     def on_chase_speed(self, message):
         presets["chase"].speed = float(message.payload)
-        logging.info("chase speed set to {}".format(presets["chase"].speed))
+        logger.info("chase speed set to {}".format(presets["chase"].speed))
 
     def on_chase_pixels(self, message):
         presets["chase"].n = int(message.payload)
-        logging.info("chase pixels set to {}".format(presets["chase"].n))
+        logger.info("chase pixels set to {}".format(presets["chase"].n))
 
     def on_picker(self, message):
             presets["pixelpicker"].chosen_pixel = int(message.payload)
-            logging.info("pixel number {} chosen".format(int(message.payload)))
+            logger.info("pixel number {} chosen".format(int(message.payload)))
 
     def on_picker_json(self, message):
             data = json.loads(message.payload.decode())
@@ -605,7 +609,19 @@ presets = {
 }
 
 
+def get_args():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-D', '--debug', action='store_true', default=False,
+                    help='Enable debug logging')
+    return ap.parse_args()
+
+
 def main():
+    args = get_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
     rendererthread = Renderer()
     rendererthread.frames = [frame_net, frame_music, frame_main]
     rendererthread.daemon = True
