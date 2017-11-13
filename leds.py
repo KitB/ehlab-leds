@@ -100,12 +100,6 @@ class Frame:
             for i in range(0, self.pixels):
                 strip.setPixelColor(i, self.data2[i])
             strip.show()
-        # if self.frame_ready.is_set():
-        #     d = self.data2
-        #     self.frame_ready.clear()
-        #     for i in range(0, self.pixels):
-        #         strip.setPixelColor(i, d[i])
-        #     strip.show()
 
 
 class LedProgram:
@@ -392,44 +386,17 @@ class ServerProgram(LedProgram):
                 return
             time.sleep(1)
 
-    # def set_all(self, r, g, b):
-    #     global pixel_buffer
-    #     logging.debug("*={},{},{}".format(r, g, b))
-    #     for p in range(0, pixels):
-    #         pixel_buffer[p] = rgb_to_24bit(r, g, b)
-
-    # def set_pixel(self, pixel, r, g, b):
-    #     global pixel_buffer
-    #     logging.debug("{}={},{},{}".format(pixel, r, g, b))
-
-    # def set_preset(self, preset_mode):
-    #     global program
-    #     global program_changed
-    #     global render_mode
-    #     logging.debug("preset {}".format(preset_mode))
-    #     program = {"mode": "preset", "preset": 12}
-    #     program_changed = True
-    #     render_mode = MODE_PROGRAM
-
-    # def show(self):
-    #     logging.debug("---show---")
-
     def loop(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(("0.0.0.0", self.port))
         while True:
             data, address = sock.recvfrom(1500)
-            # logging.info("{}:{} > {}".format(address[0], address[1], repr(data)))
             if len(data) > 0:
                 if data[0] == 0x01:
                     # single colour
                     r, g, b = data[1:4]
                     self.set_all(r, g, b)
                     self.show()
-                # elif data[0] == 0x02:
-                #     # numeric preset mode
-                #     preset_mode = data[1]
-                #     self.set_preset(preset_mode)
                 elif data[0] == 0x03:
                     # full frame
                     pos = 1
@@ -491,23 +458,10 @@ class Renderer(threading.Thread):
         self.strip = neopixel.Adafruit_NeoPixel(pixels, 18, 800000, 5, False, 255)
         self.strip.begin()
         while True:
-            # show_event.wait()
-            # i = -1
             for frame in self.frames:
                 if frame.active():
-                    # data = frame.get_pixels()
-                    # for i in range(0, pixels):
-                    #     self.strip.setPixelColor(i, data[i])
-                    # self.strip.show()
-                    # t = time.time()
-                    # last_frame_time = time.time()
                     frame.render_strip(self.strip)
-                    # runtime = time.time() - last_frame_time
-                    # print("{:3f}".format(runtime))
-                    # print(time.time() - t)
-                    # show_event.clear()
                     break
-            # show_event.clear()
 
 
 class MainLedThread(threading.Thread):
@@ -623,7 +577,6 @@ class MessageHandler:
     def on_picker_json(self, message):
             data = json.loads(message.payload.decode())
             presets["pixelpicker"].data = data
-            # logging.info("pixelpicker data set to {}".format(data))
 
 
 frame_net = Frame(776, timeout=1)
@@ -675,18 +628,6 @@ def main():
     m.on_message = message_handler.on_message
     m.connect("mqtt")
     m.loop_forever()
-
-# while True:
-#    time.sleep(10)
-#
-# program_sequence = [Zap(frame_main), TestChecker(frame_main)]
-#
-# while True:
-#    for p in program_sequence:
-#        logging.info("switching program")
-#        mainledthread.new_program = p
-#        time.sleep(5)
-#
 
 
 if __name__ == '__main__':
