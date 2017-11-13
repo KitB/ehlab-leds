@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-
 import colorsys
 import json
 import logging
 import math
-import paho.mqtt.client as mqtt
 import socket
 import threading
 import time
+
+from paho import mqtt
+import paho.mqtt.client as mqtt_client
 import neopixel
 import webcolors
-
-import paho.mqtt.subscribe as subscribe
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -290,7 +289,7 @@ class Bercostat(LedProgram):
         self.set_all(self.black)
 
     def loop(self):
-        rheostat = subscribe.simple("sensor/rheostat", hostname="mqtt")
+        rheostat = mqtt.subscribe.simple("sensor/rheostat", hostname="mqtt")
         chosen_pixel = float(rheostat.payload.decode('utf-8')) * 7.76
         chosen_pixel = math.floor(chosen_pixel)
         for p in range(0, self.pixel_count):
@@ -315,7 +314,7 @@ class BercostatBow(Rainbow):
         for hue in range(0, 360):
             scaling = 360.0/self.pixel_count * self.multiplier
 
-            rheostat = subscribe.simple("sensor/rheostat", hostname="mqtt")
+            rheostat = mqtt.subscribe.simple("sensor/rheostat", hostname="mqtt")
             chosen_pixel = float(rheostat.payload.decode('utf-8')) * 7.76
             chosen_pixel = math.floor(chosen_pixel)
 
