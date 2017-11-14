@@ -498,7 +498,11 @@ class MainLedThread(threading.Thread):
 
     def loop(self):
         while True:
-            program = self.task_queue.get(block=True)
+            try:
+                program = self.task_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+
             logger.info("new program requested")
 
             if self.progthread is not None:
