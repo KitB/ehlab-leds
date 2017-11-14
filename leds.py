@@ -343,12 +343,17 @@ class PixelPicker(LedProgram):
         self.action_queue.put(data)
 
     def loop(self):
-        data = self.action_queue.get()
-        for key in data:
-            self.set_pixel(int(key),
-                           rgb_to_24bit(data[key][0], data[key][1], data[key][2])
-                           )
-        self.show()
+        try:
+            data = self.action_queue.get(timeout=0.1)
+        except queue.Empty:
+            pass
+        else:
+            for key in data:
+                self.set_pixel(
+                    int(key),
+                    rgb_to_24bit(data[key][0], data[key][1], data[key][2])
+                )
+            self.show()
 
 
 class TestChecker(LedProgram):
