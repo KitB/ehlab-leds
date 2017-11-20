@@ -329,8 +329,6 @@ class BercostatBow(Rainbow):
 
 class PixelPicker(LedProgram):
     def setup(self, data=None):
-        self.action_queue = queue.Queue()
-
         if data is None:
             data = {}
 
@@ -338,6 +336,14 @@ class PixelPicker(LedProgram):
         self.black = rgb_to_24bit(0, 0, 0)
         self.set_all(self.black)
         self.show()
+
+    @property
+    def action_queue(self):
+        try:
+            return self._action_queue
+        except AttributeError:
+            self._action_queue = queue.Queue()
+            return self._action_queue
 
     def post(self, data):
         self.action_queue.put(data)
