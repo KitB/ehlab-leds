@@ -122,27 +122,27 @@ class LedProgram:
 
     def show(self):
         if self.exit_requested:
-            raise LedExit
+            raise LedExit()
         self.frame.show()
 
     def run(self):
         self.exit_requested = False
         self.setup(*self.args, **self.kwargs)
-        while True:
+        while not self.exit_requested:
             self.loop()
 
     def setup(self):
         pass
 
     def loop(self):
-        raise LedExit
+        raise LedExit()
 
     def stop(self):
         self.exit_requested = True
 
     def sleep(self, t):
         if self.exit_requested:
-            raise LedExit
+            raise LedExit()
         time.sleep(t)
 
 
@@ -359,7 +359,7 @@ class PixelPicker(LedProgram):
                     int(key),
                     rgb_to_24bit(data[key][0], data[key][1], data[key][2])
                 )
-            self.show()
+        self.show()
 
 
 class TestChecker(LedProgram):
@@ -453,12 +453,13 @@ class ProgramRunnerThread(threading.Thread):
     def __init__(self):
         super().__init__()
         self.program = None
+        self.exit_requested = False
 
     def run(self):
         if self.program is None:
             return
         try:
-            while True:
+            while not self.exit_requested:
                 self.program.run()
         except LedExit:
             pass
@@ -468,6 +469,7 @@ class ProgramRunnerThread(threading.Thread):
 
     def stop(self):
         self.program.stop()
+        self.exit_requested = True
         self.join()
 
 
